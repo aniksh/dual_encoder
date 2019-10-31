@@ -1,15 +1,18 @@
 {
+    "max_tokens": 2000,
     "num_parallel_threads": 10,
     "seed": 1234,
     "model_version": "embed",
-    "embedding_size": 50,
+    "embedding_size": 300,
     "initializer":"random",
     "pretrained_path":"/home/anik/Documents/f18/embeddings/data/glove.6B/glove.6B.50d.txt",
 
+    "loss_fn": "margin",
     "learning_rate": 1e-3,
-    "batch_size": 32,
-    "num_epochs": 5,
-    "tol": 2,
+    "batch_size": 1000,
+    "num_epochs": 20,
+    "tol": 3,
+    "gpu": "0",
 
     "save_summary_steps": 100
 }

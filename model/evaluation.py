@@ -60,7 +60,9 @@ def evaluate(model_spec, model_dir, params, restore_from):
     # Initialize tf.Saver
     saver = tf.train.Saver()
 
-    with tf.Session() as sess:
+    gpu_options = tf.GPUOptions(visible_device_list=params.gpu, allow_growth=True)
+    config = tf.ConfigProto(gpu_options=gpu_options)
+    with tf.Session(config=config) as sess:
         # Initialize the lookup table
         sess.run(model_spec['variable_init_op'])
 

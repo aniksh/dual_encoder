@@ -71,7 +71,9 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, res
   begin_at_epoch = 0
   no_improv_epochs = 0
 
-  with tf.Session() as sess:
+  gpu_options = tf.GPUOptions(visible_device_list=params.gpu, allow_growth=True)
+  config = tf.ConfigProto(gpu_options=gpu_options)
+  with tf.Session(config=config) as sess:
     # Initialize model variables
     sess.run(train_model_spec['variable_init_op'])
 
@@ -105,7 +107,7 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, res
       metrics = evaluate_sess(sess, eval_model_spec, num_steps, eval_writer)
 
       # If best_eval, best_save_path
-      eval_acc = metrics['accuracy']
+      eval_acc = metrics['precision1']
       # eval_loss = metrics['loss']
       if eval_acc >= best_eval_acc:
         no_improv_epochs = 0
@@ -116,7 +118,7 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, res
         # Save weights
         best_save_path = os.path.join(model_dir, 'best_weights', 'after-epoch')
         best_save_path = best_saver.save(sess, best_save_path, global_step=epoch + 1)
-        logging.info("- Found new best loss, saving in {}".format(best_save_path))
+        logging.info("- Found new best accuracy, saving in {}".format(best_save_path))
         # Save best eval metrics in a json file in the model directory
         best_json_path = os.path.join(model_dir, "metrics_eval_best_weights.json")
         save_dict_to_json(metrics, best_json_path)

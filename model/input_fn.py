@@ -23,7 +23,7 @@ def load_dataset_from_text(path_txt, vocab, params):
   dataset = tf.data.TextLineDataset(path_txt)
 
   # Convert line into list of tokens, splitting by white space
-  dataset = dataset.map(lambda string: tf.string_split([string]).values, 
+  dataset = dataset.map(lambda string: tf.string_split([string]).values[:params.max_tokens], 
                         num_parallel_calls=params.num_parallel_threads)
 
   # Lookup tokens to return their ids

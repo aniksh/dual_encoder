@@ -57,6 +57,20 @@ class Embedding(object):
     self.doc_embs = doc_embs.copy()
     self.doc_embs_n = doc_embs / np.linalg.norm(doc_embs, axis=-1, keepdims=True)
 
+  def get_query_embed(self, word_list, norm=True):
+    mean_emb = np.mean([self.query_embs[self.word2id.get(word, -1)] for word in word_list], axis=0)
+    if norm:
+      return mean_emb / np.linalg.norm(mean_emb)
+    else:
+      return mean_emb
+  
+  def get_article_embed(self, word_list, norm=True):
+    mean_emb = np.mean([self.doc_embs[self.word2id.get(word, -1)] for word in word_list], axis=0)
+    if norm:
+      return mean_emb / np.linalg.norm(mean_emb)
+    else:
+      return mean_emb
+
   def nearby(self, word, dic="query", num_nns=10):
     assert word in self.word2id, "Word is not in the vocabulary"
 
