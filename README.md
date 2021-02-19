@@ -5,8 +5,9 @@ The code structure is based on https://github.com/cs230-stanford/cs230-code-exam
 ## Training
 
 ```
-python train.py --model_dir embed-rand-d100-b100-e20-margin
+python train.py --model_dir EXP_NAME --data_dir DATA --restore_dir WEIGHTS_DIR
 ```
+  - WEIGHTS_DIR is the directory containing model weights e.g. EXP_NAME/best_weights
 
 The settings for training are in the *params.json* file.
 
