@@ -22,31 +22,73 @@ def build_model(mode, inputs, params):
   query_lengths = inputs['query_lengths']
   article_lengths = inputs['article_lengths']
 
-  if params.model_version == 'embed':
-    if params.initializer == "pretrained":
-      init = tf.constant_initializer(load_embeddings(params))
-    else:
-      init = tf.random_uniform_initializer(
-              -0.5/params.embedding_size, 0.5/params.embedding_size)
-    # Get word embeddings for each token in the sentence
-    qembeddings = tf.get_variable(name="qembeddings", dtype=tf.float32,
-            shape=[params.vocab_size, params.embedding_size],
-            initializer=init)
-    dembeddings = tf.get_variable(name="dembeddings", dtype=tf.float32,
-            shape=[params.vocab_size, params.embedding_size],
-            initializer=init)
-              
-    query = tf.nn.embedding_lookup(qembeddings, query)
-    article = tf.nn.embedding_lookup(dembeddings, article)
+  if params.initializer == "pretrained":
+    init = tf.constant_initializer(load_embeddings(params))
+  else:
+    init = tf.random_uniform_initializer(
+            -0.5/params.embedding_size, 0.5/params.embedding_size)
+  # Get word embeddings for each token in the sentence
+  qembeddings = tf.get_variable(name="qembeddings", dtype=tf.float32,
+          shape=[params.vocab_size, params.embedding_size],
+          initializer=init)
+  dembeddings = tf.get_variable(name="dembeddings", dtype=tf.float32,
+          shape=[params.vocab_size, params.embedding_size],
+          initializer=init)
+            
+  query_embs = tf.nn.embedding_lookup(qembeddings, query)
+  article_embs = tf.nn.embedding_lookup(dembeddings, article)
 
-    # (we need to apply a mask to account for padding)
-    query_mask = tf.expand_dims(tf.sequence_mask(query_lengths, dtype=tf.float32), -1)
-    article_mask = tf.expand_dims(tf.sequence_mask(article_lengths, dtype=tf.float32), -1)
-    query_embed = tf.reduce_sum(tf.multiply(query, query_mask), axis=1) \
+  # (we need to apply a mask to account for padding)
+  query_mask = tf.expand_dims(tf.sequence_mask(query_lengths, dtype=tf.float32), -1)
+  article_mask = tf.expand_dims(tf.sequence_mask(article_lengths, dtype=tf.float32), -1)
+
+  if params.model_version == 'embed':
+    query_embed = tf.reduce_sum(tf.multiply(query_embs, query_mask), axis=1) \
                     / tf.cast(tf.expand_dims(query_lengths, -1), tf.float32)
-    article_embed = tf.reduce_sum(tf.multiply(article, article_mask), axis=1) \
+    article_embed = tf.reduce_sum(tf.multiply(article_embs, article_mask), axis=1) \
                     / tf.cast(tf.expand_dims(article_lengths, -1), tf.float32)
     
+  elif params.model_version == 'embedwt':
+    qwts = tf.get_variable(name="qwts", dtype=tf.float32,
+          shape=[params.vocab_size], initializer=tf.random_uniform_initializer())
+    awts = tf.get_variable(name="awts", dtype=tf.float32,
+          shape=[params.vocab_size], initializer=tf.random_uniform_initializer())
+    query_wt = tf.nn.embedding_lookup(qwts, query)
+    article_wt = tf.nn.embedding_lookup(awts, article)
+    query_exp = tf.multiply(tf.exp(tf.expand_dims(query_wt,-1)), query_mask)
+    query_softmax = query_exp / tf.reduce_sum(query_exp, axis=1, keepdims=True)
+    article_exp = tf.multiply(tf.exp(tf.expand_dims(article_wt,-1)), article_mask)
+    article_softmax = article_exp / tf.reduce_sum(article_exp, axis=1, keepdims=True)
+    
+    query_embed = tf.reduce_sum(tf.multiply(query_embs, query_softmax), axis=1)
+    # tf.reduce_sum(tf.multiply(tf.multiply(query_embs, tf.expand_dims(query_wt,-1)), query_mask), axis=1) \
+                    # / tf.reduce_sum(tf.multiply(tf.expand_dims(query_wt,-1), query_mask), axis=1)
+                    # / tf.cast(tf.expand_dims(query_lengths, -1), tf.float32)                    
+    article_embed = tf.reduce_sum(tf.multiply(article_embs, article_softmax), axis=1)
+    # tf.reduce_sum(tf.multiply(tf.multiply(article_embs, tf.expand_dims(article_wt,-1)), article_mask), axis=1) \
+                    # / tf.reduce_sum(tf.multiply(tf.expand_dims(article_wt,-1), article_mask), axis=1)
+                    # / tf.cast(tf.expand_dims(article_lengths, -1), tf.float32)
+
+  elif params.model_version == 'embedtf':
+    query_wt = tf.nn.embedding_lookup(params.idf, query)
+    article_wt = tf.nn.embedding_lookup(params.idf, article)
+    query_exp = tf.multiply(tf.exp(tf.expand_dims(query_wt,-1)), query_mask)
+    query_softmax = query_exp / tf.reduce_sum(query_exp, axis=1, keepdims=True)
+    article_exp = tf.multiply(tf.exp(tf.expand_dims(article_wt,-1)), article_mask)
+    article_softmax = article_exp / tf.reduce_sum(article_exp, axis=1, keepdims=True)
+    
+    query_embed = tf.reduce_sum(tf.multiply(query_embs, query_softmax), axis=1)
+    article_embed = tf.reduce_sum(tf.multiply(article_embs, article_softmax), axis=1)
+
+  elif params.model_version == 'sif':
+    vocab_freqs = params.vocab_freqs
+    query_wt = 0.001 / (0.001 + tf.nn.embedding_lookup(vocab_freqs, query))
+    article_wt = 0.001 / (0.001 + tf.nn.embedding_lookup(vocab_freqs, article))
+
+    query_embed = tf.reduce_sum(tf.multiply(tf.multiply(query_embs, tf.expand_dims(query_wt,-1)), query_mask), axis=1) \
+                    / tf.cast(tf.expand_dims(query_lengths, -1), tf.float32)
+    article_embed = tf.reduce_sum(tf.multiply(tf.multiply(article_embs, tf.expand_dims(article_wt,-1)), article_mask), axis=1) \
+                    / tf.cast(tf.expand_dims(article_lengths, -1), tf.float32)
 
   # elif params.model_version == 'lstm':
     

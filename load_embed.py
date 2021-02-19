@@ -11,14 +11,16 @@ def cosine_sim(a,b):
   return dot_product / (norm_a * norm_b)
 
 class Embedding(object):
-  def __init__(self, save_path, epoch=None, ckpt_file=None, verbose=True):
+  def __init__(self, save_path, data_path, mode="embed", epoch=None, ckpt_file=None, verbose=True):
     # create a new session and a new graph every time this object is constructed
     # if a ckpt file is not provided, use the latest ckpt file.
     if epoch is None or epoch < 0:
       self.ckpt_file = ckpt_file
     else:
-      self.ckpt_file = os.path.join(save_path, 'model_epoch.ckpt-%d' %(epoch-1))
+      self.ckpt_file = os.path.join(save_path, 'after-epoch-%d' %(epoch))
     self.save_path = save_path
+    self.data_path = data_path
+    self.mode = mode
     self.epoch = epoch
     with tf.Session() as session:
       self.session = session
@@ -26,16 +28,20 @@ class Embedding(object):
       self.load_vocab()
 
   def load_vocab(self):
-    id2word = [line.split()[0]
-        for line in open(os.path.join("data", "vocab100"), 'r')
-        ]
+    id2word, id2freq = list(zip(*[line.split()
+        for line in open(os.path.join(self.data_path, "vocab100"), 'r')
+        ]))
     assert len(id2word) + 1 == self.vocab_size, \
             'Expecting vocab size to match ckpt:{} vocab.txt{}'.format(self.vocab_size, len(id2word))
     self.id2word = id2word
-    word2id = {}
+    word2id, word2freq = {}, {}
+    id2freq = [float(f) for f in id2freq]
+    total_freq = np.sum(id2freq)
     for _i in range(len(id2word)):
       word2id[id2word[_i]] = _i
+      word2freq[id2word[_i]] = id2freq[_i] / total_freq
     self.word2id = word2id
+    self.word2freq = word2freq
     
   def load_model(self, verbose=True):
     latest_ckpt_file = tf.train.latest_checkpoint(self.save_path) if self.ckpt_file is None else self.ckpt_file
@@ -49,6 +55,8 @@ class Embedding(object):
     new_saver.restore(self.session, latest_ckpt_file)
 
     [query_embs, doc_embs] = self.session.run(['model/qembeddings:0', 'model/dembeddings:0'])
+    if self.mode == "embedwt" or self.mode == "embedwt2":
+      [self.qwts, self.awts] = self.session.run(['model/qwts:0', 'model/awts:0'])
     self.vocab_size = query_embs.shape[0]
     self.word_dim = query_embs.shape[1]
 
@@ -58,18 +66,59 @@ class Embedding(object):
     self.doc_embs_n = doc_embs / np.linalg.norm(doc_embs, axis=-1, keepdims=True)
 
   def get_query_embed(self, word_list, norm=True):
-    mean_emb = np.mean([self.query_embs[self.word2id.get(word, -1)] for word in word_list], axis=0)
+    if self.mode == "sif":
+      mean_emb = np.mean([self.query_embs[self.word2id.get(word, -1)] * (0.001 / (0.001 + self.word2freq.get(word, 0.))) for word in word_list], axis=0)
+    elif self.mode == "embedwt":
+      mean_emb = np.mean([self.query_embs[self.word2id.get(word, -1)] * self.qwts[self.word2id.get(word, -1)] for word in word_list], axis=0)
+    elif self.mode == "embedwt2":
+      wts = [np.exp(self.qwts[self.word2id.get(word, -1)]) for word in word_list]
+      embs = [self.query_embs[self.word2id.get(word, -1)] for word in word_list]
+      mean_emb = np.sum(np.multiply(embs, wts), axis=0) / np.sum(wts)
+    else:
+      mean_emb = np.mean([self.query_embs[self.word2id.get(word, 0)] for word in word_list], axis=0)
     if norm:
       return mean_emb / np.linalg.norm(mean_emb)
     else:
       return mean_emb
   
   def get_article_embed(self, word_list, norm=True):
-    mean_emb = np.mean([self.doc_embs[self.word2id.get(word, -1)] for word in word_list], axis=0)
+    if self.mode == "sif":
+      mean_emb = np.mean([self.doc_embs[self.word2id.get(word, -1)] * (0.001 / (0.001 + self.word2freq.get(word, 0.))) for word in word_list], axis=0)
+    elif self.mode == "embedwt":
+      mean_emb = np.mean([self.doc_embs[self.word2id.get(word, -1)] * self.awts[self.word2id.get(word, -1)] for word in word_list], axis=0)
+    elif self.mode == "embedwt2":
+      wts = [np.exp(self.awts[self.word2id.get(word, -1)]) for word in word_list]
+      embs = [self.doc_embs[self.word2id.get(word, -1)] for word in word_list]
+      mean_emb = np.sum(np.multiply(embs, wts), axis=0) / np.sum(wts)
+    else:
+      # word_ids = [self.word2id.get(word, 0) for word in word_list]
+      # mean_emb = np.mean([self.doc_embs[i] for i in word_ids if i > 0], axis=0)
+      mean_emb = np.mean([self.doc_embs[self.word2id.get(word, 0)] for word in word_list], axis=0)
     if norm:
       return mean_emb / np.linalg.norm(mean_emb)
     else:
       return mean_emb
+  
+  def get_articles_embed(self, article_list, norm=True, split=True):
+    articles_emb = np.zeros((len(article_list), self.word_dim))
+    for i, word_list in enumerate(article_list):
+      if split:
+        word_list = word_list.split()
+      if self.mode == "sif":
+        articles_emb[i] = np.mean([self.doc_embs[self.word2id.get(word, -1)] * (0.001 / (0.001 + self.word2freq.get(word, 0.))) for word in word_list], axis=0)
+      elif self.mode == "embedwt":
+        articles_emb[i] = np.mean([self.doc_embs[self.word2id.get(word, -1)] * self.awts[self.word2id.get(word, -1)] for word in word_list], axis=0)
+      elif self.mode == "embedwt2":
+        wts = [np.exp(self.awts[self.word2id.get(word, -1)]) for word in word_list]
+        embs = [self.doc_embs[self.word2id.get(word, -1)] for word in word_list]
+        articles_emb[i] = np.sum(np.multiply(embs, wts), axis=0) / np.sum(wts)
+      else:
+        word_ids = [self.word2id.get(word, -1) for word in word_list]
+        articles_emb[i] = np.mean([self.doc_embs[word_id] for word_id in word_ids if word_id >= 0], axis=0)
+    if norm:
+      return articles_emb / np.linalg.norm(articles_emb, axis=-1, keepdims=True)
+    else:
+      return articles_emb
 
   def nearby(self, word, dic="query", num_nns=10):
     assert word in self.word2id, "Word is not in the vocabulary"

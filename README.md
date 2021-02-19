@@ -5,7 +5,7 @@ The code structure is based on https://github.com/cs230-stanford/cs230-code-exam
 ## Training
 
 ```
-python train.py --exp_name embed-rand-d100-b100-e20-margin
+python train.py --model_dir embed-rand-d100-b100-e20-margin
 ```
 
 The settings for training are in the *params.json* file.

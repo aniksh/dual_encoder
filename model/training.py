@@ -107,7 +107,7 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, res
       metrics = evaluate_sess(sess, eval_model_spec, num_steps, eval_writer)
 
       # If best_eval, best_save_path
-      eval_acc = metrics['precision1']
+      eval_acc = metrics['accuracy']
       # eval_loss = metrics['loss']
       if eval_acc >= best_eval_acc:
         no_improv_epochs = 0

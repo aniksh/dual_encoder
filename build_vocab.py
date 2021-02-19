@@ -75,7 +75,7 @@ if __name__ == "__main__":
   size_train = update_vocab(os.path.join(args.data_dir, "train/queries.txt"), words)
   size_dev = update_vocab(os.path.join(args.data_dir, "dev/queries.txt"), words)
   # size_test = update_vocab(os.path.join(args.data_dir, "test/queries.txt"), words)
-  size_test = num_lines_in_file(os.path.join(args.data_dir, "test/queries.txt"))
+  # size_test = num_lines_in_file(os.path.join(args.data_dir, "test/queries.txt"))
   _ = update_vocab(os.path.join(args.data_dir, "train/articles.txt"), words)
   _ = update_vocab(os.path.join(args.data_dir, "dev/articles.txt"), words)
   # _ = update_vocab(os.path.join(args.data_dir, "test/articles.txt"), words)
@@ -94,7 +94,7 @@ if __name__ == "__main__":
   sizes = {
     'train_size': size_train,
     'dev_size': size_dev,
-    'test_size': size_test,
+    # 'test_size': size_test,
     'min_freq': args.min_freq,
     'vocab_size': len(vocab) + NUM_OOV_BUCKETS,
     'pad_word': PAD_WORD,

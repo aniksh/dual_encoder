@@ -4,7 +4,9 @@ import argparse
 import logging
 import os
 from time import time
+import pickle
 
+import numpy as np
 import tensorflow as tf
 
 from model.utils import Params
@@ -16,16 +18,20 @@ from model.model_fn import model_fn
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--exp_name', default='base_model',
+parser.add_argument('--model_dir', default='base_model',
           help="Directory containing params.json")
-parser.add_argument('--data_dir', default='data', help="Directory containing the dataset")
+parser.add_argument('--data_dir', default='', help="Directory containing the dataset")
 parser.add_argument('--restore_dir', default=None,
           help="Optional, directory containing weights to reload before training")
 
 
 if __name__ == '__main__':
-  args = parser.parse_args()  
-  args.model_dir = os.path.join("experiments", args.model_dir)
+  args = parser.parse_args()
+  args.model_dir = os.path.join("experiments", args.data_dir, args.model_dir)
+  if args.restore_dir is not None:
+    args.restore_dir = os.path.join("experiments", args.data_dir, args.restore_dir)
+  args.data_dir = os.path.join("data", args.data_dir)
+  print(args)
   if not os.path.isdir(args.model_dir):
     os.makedirs(args.model_dir)
   
@@ -67,6 +73,19 @@ if __name__ == '__main__':
   vocab = tf.contrib.lookup.index_table_from_file(path_vocab, 
                           num_oov_buckets=num_oov_buckets,
                           key_column_index=0)
+
+  if params.model_version == "sif": 
+    vocab_freqs = np.loadtxt(params.vocab_path, usecols=1, comments=None, encoding='utf-8')
+    vocab_freqs = np.append(vocab_freqs, 0.)
+    vocab_freqs = tf.constant(vocab_freqs / np.sum(vocab_freqs), dtype=tf.float32) # frequency for OOV token
+    params.vocab_freqs = vocab_freqs
+  
+  if params.model_version == "embedtf":
+    with open(os.path.join(args.data_dir, "tfidfvec.pkl"), "rb") as f:
+      tfidf = pickle.load(f)
+    idf = tfidf.idf_.copy()
+    idf = np.append(idf, idf[0])
+    params.idf = idf
 
   # Create the input data pipeline
   logging.info("Creating the datasets...")
