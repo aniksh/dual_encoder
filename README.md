@@ -5,7 +5,7 @@ The code structure is based on https://github.com/cs230-stanford/cs230-code-exam
 ## Training
 
 ```
-python train.py --model_dir EXP_NAME --data_dir DATA --restore_dir WEIGHTS_DIR
+python train.py --data_dir DATA --model_dir EXP_NAME --restore_dir WEIGHTS_DIR
 ```
   - WEIGHTS_DIR is the directory containing model weights e.g. EXP_NAME/best_weights
 
@@ -35,7 +35,7 @@ Description:
 ## Ranking
 
 ```
-python rank.py --model experiments/embed-rand-d100-b100-e20-margin/best_weights
+python rank.py --data_dir DATA --model EXP_NAME --method METHOD --mode MODE
 ```
 
 Ranks the test set using weights from the saved model.
