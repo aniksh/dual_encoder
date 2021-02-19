@@ -2,6 +2,11 @@
 
 The code structure is based on https://github.com/cs230-stanford/cs230-code-examples/tree/master/tensorflow/nlp
 
+## Dataset
+
+`build_dataset.py` processes the dataset for training.  
+Then `build_vocab.py` is used to create vocabulary file.
+
 ## Training
 
 ```
