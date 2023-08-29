@@ -101,9 +101,9 @@ if __name__ == "__main__":
   # Load dataset into memory
   print("Loading the dataset...")
   if 'news' in dataset_name:
-    data_path = '../data/signalmedia-1m.jsonl'
+    data_path = 'data/signalmedia-1m.jsonl'
   elif 'wiki' in dataset_name:
-    data_path = '../data/wiki-json/all_docs.jsonl'
+    data_path = 'data/wiki-json/all_docs.jsonl'
   
   dataset = load_dataset(data_path, max_lines=-1, mode=dataset_name)
   print("Done\n")
